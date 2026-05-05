@@ -63,7 +63,7 @@ Resources:
   InstanceSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: TRIBE ViralAnalyser — no inbound; SSM port-forward provides access.
+      GroupDescription: TRIBE ViralAnalyser - no inbound; SSM port-forward provides access.
       VpcId: !Ref VpcId
       SecurityGroupEgress:
         - IpProtocol: -1
