@@ -32,9 +32,11 @@ if [[ -b "$DATA_DEVICE" ]]; then
   mkdir -p "$WORKSPACE"
   if ! mountpoint -q "$WORKSPACE"; then
     UUID=$(blkid -s UUID -o value "$DATA_DEVICE")
-    grep -q "$UUID" /etc/fstab \
-      || echo "UUID=$UUID $WORKSPACE ext4 defaults,nofail 0 2" >>/etc/fstab
-    mount "$WORKSPACE"
+    # Remove any stale /workspace fstab entries (e.g. from a prior failed run)
+    sed -i "\\| $WORKSPACE |d" /etc/fstab
+    echo "UUID=$UUID $WORKSPACE ext4 defaults,nofail 0 2" >>/etc/fstab
+    # Mount by device directly so we don't pick up a stale fstab entry
+    mount "$DATA_DEVICE" "$WORKSPACE"
   fi
 else
   echo "[bootstrap] WARNING: $DATA_DEVICE never appeared; placing $WORKSPACE on root volume"
