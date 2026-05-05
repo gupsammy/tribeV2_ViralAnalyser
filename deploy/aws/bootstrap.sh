@@ -8,7 +8,7 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-https://github.com/gupsammy/tribeV2_ViralAnalyser.git}"
 APP_USER="${APP_USER:-ubuntu}"
 WORKSPACE="${WORKSPACE:-/workspace}"
-DATA_DEVICE="${DATA_DEVICE:-/dev/nvme1n1}"   # Nitro renames /dev/sdf to /dev/nvme1n1
+DATA_DEVICE="${DATA_DEVICE:-/dev/nvme2n1}"   # DLAMI Base GPU: nvme1n1 is its local NVMe LVM cache; our EBS lands at nvme2n1
 APP_DIR="$WORKSPACE/app"
 VENV_DIR="$APP_DIR/.venv"
 
