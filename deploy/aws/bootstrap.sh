@@ -52,6 +52,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y --no-install-recommends \
   git python3 python3-venv python3-pip \
+  python3.11 python3.11-venv python3.11-dev \
   chromium-browser ffmpeg curl ca-certificates
 
 CHROME_BIN=$(command -v chromium-browser || command -v chromium || true)
@@ -77,7 +78,7 @@ EOF
 sudo -u "$APP_USER" -H bash <<EOF
 set -euo pipefail
 cd "$APP_DIR"
-[[ -d "$VENV_DIR" ]] || python3 -m venv "$VENV_DIR"
+[[ -d "$VENV_DIR" ]] || python3.11 -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip wheel
 pip install --extra-index-url https://download.pytorch.org/whl/cu124 'torch>=2.5.1,<2.7'
