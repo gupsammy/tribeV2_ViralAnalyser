@@ -1,0 +1,145 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: TRIBE v2 ViralAnalyser — Phase 1 single-instance dev/demo stack.
+
+Parameters:
+  RepoUrl:
+    Type: String
+    Default: https://github.com/gupsammy/tribeV2_ViralAnalyser.git
+    Description: HTTPS clone URL. Public repo, or include an embedded token for private.
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the instance. The default VPC works fine for Phase 1.
+
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Public subnet (needed for HuggingFace / PyPI / GitHub egress on first run).
+
+  InstanceType:
+    Type: String
+    Default: g6.xlarge
+    AllowedValues: [g6.xlarge, g6.2xlarge, g5.xlarge, g5.2xlarge]
+    Description: GPU instance type. g6.xlarge (L4 24GB) is the recommended default.
+
+  RootVolumeSize:
+    Type: Number
+    Default: 100
+    MinValue: 80
+    Description: Root EBS volume size in GB. DLAMI Base alone is ~80GB.
+
+  DataVolumeSize:
+    Type: Number
+    Default: 100
+    MinValue: 50
+    Description: Persistent data volume size in GB (TRIBE cache, runtime media, reports).
+
+  DlamiAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id
+    Description: SSM parameter resolving to the latest DLAMI Base GPU Ubuntu 22.04 AMI.
+
+Resources:
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Tags:
+        - Key: Project
+          Value: TRIBE-ViralAnalyser
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  InstanceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: TRIBE ViralAnalyser — no inbound; SSM port-forward provides access.
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Egress for HuggingFace, PyPI, GitHub, AWS APIs.
+      Tags:
+        - Key: Project
+          Value: TRIBE-ViralAnalyser
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref DlamiAmi
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds: [!Ref InstanceSG]
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref RootVolumeSize
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          exec > >(tee -a /var/log/cfn-userdata.log) 2>&1
+          echo "[user-data] starting at $(date -u)"
+          apt-get update -y
+          apt-get install -y git
+          git clone ${RepoUrl} /tmp/repo
+          chmod +x /tmp/repo/deploy/aws/bootstrap.sh
+          REPO_URL='${RepoUrl}' /tmp/repo/deploy/aws/bootstrap.sh
+      Tags:
+        - Key: Name
+          Value: tribe-viralanalyser
+        - Key: Project
+          Value: TRIBE-ViralAnalyser
+
+  DataVolume:
+    Type: AWS::EC2::Volume
+    DeletionPolicy: Retain          # preserve TRIBE cache across stack updates
+    UpdateReplacePolicy: Retain
+    Properties:
+      AvailabilityZone: !GetAtt Instance.AvailabilityZone
+      Size: !Ref DataVolumeSize
+      VolumeType: gp3
+      Encrypted: true
+      Tags:
+        - Key: Name
+          Value: tribe-data
+        - Key: Project
+          Value: TRIBE-ViralAnalyser
+
+  VolumeAttachment:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      InstanceId: !Ref Instance
+      VolumeId: !Ref DataVolume
+      Device: /dev/sdf
+
+Outputs:
+  InstanceId:
+    Description: EC2 InstanceId (use with SSM commands).
+    Value: !Ref Instance
+
+  SSMShell:
+    Description: Open an interactive shell on the instance.
+    Value: !Sub "aws ssm start-session --target ${Instance} --region ${AWS::Region}"
+
+  SSMPortForward:
+    Description: Tunnel localhost:8000 to the FastAPI server on the instance.
+    Value: !Sub "aws ssm start-session --target ${Instance} --document-name AWS-StartPortForwardingSession --parameters 'portNumber=[\"8000\"],localPortNumber=[\"8000\"]' --region ${AWS::Region}"
+
+  LogsTail:
+    Description: Tail the bootstrap log via SSM run-command.
+    Value: !Sub "aws ssm start-session --target ${Instance} --region ${AWS::Region}  # then: sudo tail -f /var/log/bootstrap.log"
