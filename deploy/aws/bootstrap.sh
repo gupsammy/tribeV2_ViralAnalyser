@@ -106,7 +106,23 @@ TRIBE_CACHE_DIR="$WORKSPACE/tribe_cache" python bootstrap_models.py
 EOF
 
 # ----------------------------------------------------------------------------
-# 7. systemd unit
+# 7. Ollama + qwen3:8b (matches app's qwen fallback; fits in L4 24GB VRAM)
+# ----------------------------------------------------------------------------
+if ! command -v ollama &>/dev/null; then
+  echo "[bootstrap] installing Ollama"
+  curl -fsSL https://ollama.com/install.sh | sh
+fi
+systemctl enable ollama
+systemctl start ollama
+# Wait for the API to be ready, then pull the model
+for _ in {1..30}; do
+  curl -sf http://localhost:11434/api/tags &>/dev/null && break
+  sleep 2
+done
+ollama pull qwen3:8b || echo "[bootstrap] WARNING: ollama pull failed; app will use fallback copy"
+
+# ----------------------------------------------------------------------------
+# 8. systemd unit
 # ----------------------------------------------------------------------------
 install -m 0644 "$APP_DIR/deploy/aws/viralanalyser.service" \
   /etc/systemd/system/viralanalyser.service
