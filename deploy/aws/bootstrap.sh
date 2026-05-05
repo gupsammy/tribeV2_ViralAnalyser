@@ -124,7 +124,7 @@ for _ in {1..30}; do
   curl -sf http://localhost:11434/api/tags &>/dev/null && break
   sleep 2
 done
-ollama pull qwen3:8b || echo "[bootstrap] WARNING: ollama pull failed; app will use fallback copy"
+HOME=/root ollama pull qwen3:8b || echo "[bootstrap] WARNING: ollama pull failed; app will use fallback copy"
 
 # ----------------------------------------------------------------------------
 # 8. systemd unit
