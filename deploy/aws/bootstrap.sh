@@ -78,7 +78,7 @@ EOF
 sudo -u "$APP_USER" -H bash <<EOF
 set -euo pipefail
 cd "$APP_DIR"
-[[ -d "$VENV_DIR" ]] || python3.11 -m venv "$VENV_DIR"
+python3.11 -m venv --clear "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip wheel
 pip install --extra-index-url https://download.pytorch.org/whl/cu124 'torch>=2.5.1,<2.7'
