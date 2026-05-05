@@ -19,8 +19,8 @@ import tribev2.eventstransforms as tribev2_eventstransforms
 from runtime_setup import ensure_local_ffmpeg_on_path
 
 
-if hasattr(pathlib, "WindowsPath"):
-    pathlib.PosixPath = pathlib.WindowsPath  # type: ignore[assignment]
+if os.name != "nt" and hasattr(pathlib, "WindowsPath"):
+    pathlib.WindowsPath = pathlib.PosixPath  # type: ignore[assignment]
 
 from tribev2 import TribeModel
 

@@ -78,7 +78,9 @@ EOF
 sudo -u "$APP_USER" -H bash <<EOF
 set -euo pipefail
 cd "$APP_DIR"
-python3.11 -m venv --clear "$VENV_DIR"
+if [[ ! -d "$VENV_DIR" ]] || ! "$VENV_DIR/bin/python" --version 2>&1 | grep -q "Python 3.11"; then
+  python3.11 -m venv "$VENV_DIR"
+fi
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip wheel
 pip install --extra-index-url https://download.pytorch.org/whl/cu124 'torch>=2.5.1,<2.7'
